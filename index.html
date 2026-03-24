@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Pharmacotherapeutic Practice Quiz</title>
+<style>
+body{font-family:Arial;background:#f2f2f2;margin:20px;}
+h2{text-align:center;}
+#timer{text-align:center;font-size:22px;font-weight:bold;color:red;margin-bottom:20px;}
+.questionBox{background:white;padding:20px;border-radius:8px;box-shadow:0 0 6px rgba(0,0,0,0.2);}
+.navbuttons{text-align:center;margin-top:20px;}
+.navbuttons button{padding:10px 20px;margin:5px;font-size:16px;}
+.numberNav{text-align:center;margin-top:20px;}
+.numberNav button.unanswered{background:red;color:white;}
+.numberNav button.answered{background:black;color:white;}
+#result{margin-top:40px;padding:20px;background:white;border:2px solid black;text-align:center;font-size:22px;font-weight:bold;}
+#start{display:block;margin:auto;margin-top:50px;padding:15px;font-size:18px;}
+#confirmBox{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);}
+#confirmContent{background:white;width:300px;padding:20px;margin:200px auto;text-align:center;border-radius:8px;}
+#confirmContent button{margin:10px;padding:10px 20px;}
+#blockedBox{
+  display:none;
+  max-width:600px;
+  margin:60px auto;
+  background:white;
+  border:3px solid darkred;
+  padding:30px;
+  border-radius:10px;
+  text-align:center;
+  font-size:24px;
+  font-weight:bold;
+  color:darkred;
+  box-shadow:0 0 10px rgba(0,0,0,0.2);
+}
+</style>
+
+<script>
+// ====== EXAM CONFIG ======
+let examConfig = {
+  heading: "Pharmacotherapeutic practice Quiz By Belayneh A, pharmacy Dep't, IHSBC",
+  timeMinutes: 20,
+  passMark: 5,
+  maxAttempts: 5,
+  attemptKey: "pharma_quiz_attempts_blocked_v1",
+  blockedKey: "pharma_quiz_permanently_blocked_v1",
+  questions: [
+    {q:"A 55-year-old patient on Enalapril for hypertension develops a persistent dry cough. Which drug is the most appropriate alternative?",options:["A) Amlodipine","B) Losartan","C) Hydrochlorothiazide","D) Atenolol"],a:"B)"},
+    {q:"Which drug is the first-line oral agent for a newly diagnosed Type 2 Diabetes patient who is overweight?",options:["A) Insulin","B) Glibenclamide","C) Metformin","D) Pioglitazone"],a:"C)"},
+    {q:"According to the Ethiopian National Guideline, what is the first-line treatment for uncomplicated Plasmodium falciparum malaria?",options:["A) Chloroquine","B) Quinine","C) Artemether + Lumefantrine","D) Primaquine"],a:"C)"},
+    {q:"A patient on TB treatment reports that their urine and tears have turned orange-red. Which drug caused this?",options:["A) Isoniazid","B) Ethambutol","C) Pyrazinamide","D) Rifampicin"],a:"D)"},
+    {q:"Which antibiotic should be avoided in a patient with a documented history of anaphylaxis to Penicillin?",options:["A) Ciprofloxacin","B) Ceftriaxone","C) Doxycycline","D) Erythromycin"],a:"B)"},
+    {q:"How should a patient use Salbutamol and Beclomethasone inhalers for chronic asthma?",options:["A) Use Beclomethasone first then Salbutamol","B) Use Salbutamol for attacks and Beclomethasone daily","C) Use Beclomethasone only during attacks","D) Use both only when symptoms appear"],a:"B)"},
+    {q:"What is the standard triple therapy regimen for H. pylori eradication in Ethiopia?",options:["A) Amoxicillin + Clarithromycin + Omeprazole","B) Metronidazole + Tetracycline + Antacid","C) Omeprazole + Cimetidine + Aspirin","D) Amoxicillin + Ibuprofen + Zinc"],a:"A)"},
+    {q:"Which of the following is considered the safest analgesic/antipyretic for use during all trimesters of pregnancy?",options:["A) Ibuprofen","B) Aspirin","C) Paracetamol","D) Diclofenac"],a:"C)"},
+    {q:"Which antiretroviral drug is most commonly associated with central nervous system side effects like vivid dreams?",options:["A) Tenofovir","B) Lamivudine","C) Efavirenz","D) Dolutegravir"],a:"C)"},
+    {q:"Ciprofloxacin should not be administered at the same time as which of the following due to decreased absorption?",options:["A) Leafy green vegetables","B) Milk or Antacids","C) Meat products","D) Whole wheat bread"],a:"B)"}
+  ]
+};
+// =======================================
+
+let answers = new Array(examConfig.questions.length);
+let current = 0;
+let submitted = false;
+let timeLeft = examConfig.timeMinutes*60;
+let examStarted = false;
+
+function getAttempts(){
+  return parseInt(localStorage.getItem(examConfig.attemptKey)) || 0;
+}
+
+function setAttempts(value){
+  localStorage.setItem(examConfig.attemptKey, value);
+}
+
+function isBlocked(){
+  return localStorage.getItem(examConfig.blockedKey) === "true";
+}
+
+function setBlocked(){
+  localStorage.setItem(examConfig.blockedKey, "true");
+}
+
+function checkBlockOnLoad(){
+  let attempts = getAttempts();
+  if(isBlocked() || attempts >= examConfig.maxAttempts){
+    setBlocked();
+    document.getElementById("start").style.display = "none";
+    document.getElementById("exam").style.display = "none";
+    document.getElementById("blockedBox").style.display = "block";
+    document.getElementById("blockedBox").innerHTML =
+      "EXAM PERMANENTLY BLOCKED<br><br>You have already used all 5 attempts on this device/browser.";
+  }
+}
+
+function shuffle(){
+  for(let i=examConfig.questions.length-1;i>0;i--){
+    let j=Math.floor(Math.random()*(i+1));
+    [examConfig.questions[i], examConfig.questions[j]]=[examConfig.questions[j], examConfig.questions[i]];
+  }
+}
+
+function startExam(){
+  if(isBlocked() || getAttempts() >= examConfig.maxAttempts){
+    setBlocked();
+    checkBlockOnLoad();
+    return;
+  }
+
+  examStarted = true;
+  shuffle();
+  document.getElementById("start").style.display="none";
+  document.getElementById("exam").style.display="block";
+  document.getElementById("examHeading").innerText = examConfig.heading;
+  if(document.documentElement.requestFullscreen){
+    document.documentElement.requestFullscreen().catch(()=>{});
+  }
+  showQuestion();
+  startTimer();
+}
+
+function adjustFontSize(element){
+  let baseSize=18;
+  let maxLength=150;
+  let len=element.innerText.length;
+  let newSize=baseSize;
+  if(len>maxLength){
+    newSize=Math.max(14, baseSize-Math.floor((len-maxLength)/30));
+  }
+  element.style.fontSize=newSize+"px";
+}
+
+function showQuestion(){
+  let q=examConfig.questions[current];
+  let box=document.getElementById("qtext");
+  box.innerHTML=(current+1)+". "+q.q+"<br><br>";
+  for(let i=0;i<q.options.length;i++){
+    let value=q.options[i].substring(0,2);
+    let checked=(answers[current]==value)?"checked":"";
+    box.innerHTML+="<label><input type='radio' name='ans' value='"+value+"' "+checked+" onclick=\"selectAnswer('"+value+"')\"> "+q.options[i]+"</label><br><br>";
+  }
+  adjustFontSize(box);
+}
+
+function selectAnswer(val){
+  answers[current]=val;
+  let btn=document.getElementById("nav"+(current+1));
+  btn.classList.remove("unanswered");
+  btn.classList.add("answered");
+}
+
+function nextQ(){if(current<examConfig.questions.length-1){current++;showQuestion();}}
+function prevQ(){if(current>0){current--;showQuestion();}}
+function gotoQ(n){current=n;showQuestion();}
+
+function showSubmitConfirm(){document.getElementById("confirmBox").style.display="block";}
+function cancelSubmit(){document.getElementById("confirmBox").style.display="none";}
+function confirmSubmit(){document.getElementById("confirmBox").style.display="none";finalizeExam();}
+function autoSubmit(){if(submitted)return;finalizeExam();}
+
+function finalizeExam(){
+  if(submitted) return;
+
+  submitted=true;
+
+  let score=0;
+  for(let i=0;i<examConfig.questions.length;i++){
+    if(answers[i]==examConfig.questions[i].a)score++;
+  }
+
+  let attempts = getAttempts() + 1;
+  setAttempts(attempts);
+
+  let result=(score>=examConfig.passMark)?"PASS":"FAIL";
+
+  document.getElementById("exam").style.display="none";
+
+  if(attempts >= examConfig.maxAttempts){
+    setBlocked();
+    document.getElementById("result").innerHTML =
+      "Score: "+score+" / "+examConfig.questions.length+"<br>"+result+
+      "<br><br><span style='color:darkred;'>This was your 5th attempt. Exam is now permanently blocked on this device/browser.</span>";
+  } else {
+    document.getElementById("result").innerHTML =
+      "Score: "+score+" / "+examConfig.questions.length+
+      "<br>"+result+
+      "<br><br>Attempt used: "+attempts+" / "+examConfig.maxAttempts;
+  }
+}
+
+function startTimer(){
+  let timer=setInterval(function(){
+    if(submitted){
+      clearInterval(timer);
+      return;
+    }
+    let m=Math.floor(timeLeft/60);
+    let s=timeLeft%60;
+    document.getElementById("timer").innerHTML="Time Remaining: "+m+":"+(s<10?"0":"")+s;
+    timeLeft--;
+    if(timeLeft<0){
+      clearInterval(timer);
+      autoSubmit();
+    }
+  },1000);
+}
+
+document.addEventListener("visibilitychange",function(){
+  if(document.hidden && !submitted && examStarted){
+    alert("You left the exam page.");
+    autoSubmit();
+  }
+});
+
+document.addEventListener("fullscreenchange",function(){
+  if(examStarted && !document.fullscreenElement && !submitted){
+    alert("Fullscreen exited.");
+    autoSubmit();
+  }
+});
+
+window.onload = function(){
+  checkBlockOnLoad();
+};
+</script>
+</head>
+
+<body>
+<h2 id="examHeading"></h2>
+<div id="timer"></div>
+<button id="start" onclick="startExam()">Start Exam</button>
+
+<div id="blockedBox"></div>
+
+<div id="exam" style="display:none">
+  <div class="questionBox"><div id="qtext"></div></div>
+  <div class="navbuttons">
+    <button onclick="prevQ()">Previous</button>
+    <button onclick="nextQ()">Next</button>
+    <button onclick="showSubmitConfirm()">Submit</button>
+  </div>
+
+  <div class="numberNav">
+    <script>
+      for(let i=1;i<=examConfig.questions.length;i++){
+        document.write("<button id='nav"+i+"' class='unanswered' onclick='gotoQ("+(i-1)+")'>"+i+"</button>");
+      }
+    </script>
+  </div>
+</div>
+
+<div id="confirmBox">
+  <div id="confirmContent">
+    <p>Are you sure you want to submit the exam?</p>
+    <button onclick="confirmSubmit()">Yes Submit</button>
+    <button onclick="cancelSubmit()">Cancel</button>
+  </div>
+</div>
+
+<div id="result"></div>
+</body>
+</html>
